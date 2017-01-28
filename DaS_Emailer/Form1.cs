@@ -12,9 +12,18 @@ namespace DaS_Emailer
 {
     public partial class Form1 : Form
     {
+        private BackgroundWorker bg;// = new BackgroundWorker();
+        private Generator.bg_params _params;
+
         public Form1()
         {
             InitializeComponent();
+
+            bg = new BackgroundWorker();
+            bg.DoWork += new DoWorkEventHandler(Generator.save);
+            bg.RunWorkerCompleted += new RunWorkerCompletedEventHandler(Generator.completed);
+
+            _params = new Generator.bg_params();
         }
 
         private void button1_Click(object sender, EventArgs e)
@@ -24,7 +33,10 @@ namespace DaS_Emailer
                 sfd.FileName = "result";
                 sfd.DefaultExt = "html";
                 if (sfd.ShowDialog() == DialogResult.OK){
-                    Generator.save(this, sfd.FileName);
+                    toolStripStatusLabel1.Text = "Обработка";
+                    _params.form = this;
+                    _params.filename = sfd.FileName;
+                    bg.RunWorkerAsync(_params);
                 }
             }
         }

@@ -7,18 +7,28 @@ using System.IO;
 using System.Windows.Forms;
 using AngleSharp.Parser.Html;
 using System.Net;
+using System.ComponentModel;
 
 namespace DaS_Emailer
 {
     static class Generator
     {
-        public static void save(Form1 form, string href)
+        public struct bg_params
         {
-            StreamWriter sw = new StreamWriter(href);
-            string value = createPage(form); 
+            public Form1 form;
+            public string filename;
+        }
+
+        public static void save(object sender, DoWorkEventArgs e)//Form1 form, string href)
+        {
+            var _params = (bg_params)e.Argument;
+
+            StreamWriter sw = new StreamWriter(_params.filename);
+            string value = createPage(_params.form); 
             sw.WriteLine(value);
             sw.Close();
-            MessageBox.Show("Готово!");
+            e.Result = _params;
+            //MessageBox.Show("Готово!");
         }
 
         private static string createPage(Form1 form)
@@ -37,7 +47,7 @@ namespace DaS_Emailer
 
             page = page.Replace("_das_date", date);
 
-            page += getData(from, amount);
+            page += getData(from, amount, form);
 
             //записываем футер
             str = new StreamReader("footer.txt");
@@ -47,7 +57,7 @@ namespace DaS_Emailer
             return page;
         }
 
-        private static string getData(int from, int amount)
+        private static string getData(int from, int amount, Form1 form)
         {
             //узлы, которык необходимо извлечь с сайта
             List<string> header_text = new List<string>();
@@ -60,68 +70,85 @@ namespace DaS_Emailer
             var document = new HtmlParser().Parse(WebRequest.Create("http://da-strateg.ru/io/novosti-io/").GetResponse().GetResponseStream());
 
             #region парсинг DOM'а (Оптимзировать!!!)
+            int procent = 20/amount;
             //парсинг заголовка и ссылки на него
-            var i = 0;
-            foreach (var element in document.QuerySelectorAll("article > header > h2 > a"))
+            try
             {
-                i++;
-                if (from <= i && (i - from) <= amount)
+                var i = 0;
+                foreach (var element in document.QuerySelectorAll("article > header > h2 > a"))
                 {
-                    header_link.Add(element.GetAttribute("href"));
-                    header_text.Add(element.InnerHtml);
+                    i++;
+                    if (from <= i && (i - from) <= amount)
+                    {
+                        header_link.Add(element.GetAttribute("href"));
+                        header_text.Add(element.InnerHtml);
+                        form.BeginInvoke(new Action(() => form.progressBar1.Value += procent));
+                    }
+                    else if ((i - from) > amount)
+                        break;
                 }
-                else if ((i - from) > amount)
-                    break;
-            }
 
-            //парсинг даты
-            i = 0;
-            foreach (var element in document.QuerySelectorAll("article > div > p > strong > em"))
-            {
-                i++;
-                if (from <= i && (i - from) <= amount)
+                //парсинг даты
+                i = 0;
+                foreach (var element in document.QuerySelectorAll("article > div > p > strong > em"))
                 {
-                    var res = element.InnerHtml.Replace(element.QuerySelector("a").OuterHtml, "");
-                    date.Add(res);
+                    i++;
+                    if (from <= i && (i - from) <= amount)
+                    {
+                        var res = element.InnerHtml.Replace(element.QuerySelector("a").OuterHtml, "");
+                        date.Add(res);
+                        form.BeginInvoke(new Action(() => form.progressBar1.Value += procent));
+                    }
+                    else if ((i - from) > amount)
+                        break;
                 }
-                else if ((i - from) > amount)
-                    break;
-            }
 
-            //парсинг ссылки на изображение
-            i = 0;
-            foreach (var element in document.QuerySelectorAll("article > div > p > strong > em > a"))
-            {
-                i++;
-                if (from <= i && (i - from) <= amount)
-                    img_link.Add(element.GetAttribute("href"));
-                else if ((i - from) > amount)
-                    break;
-            }
-
-            //парсинг текста
-            i = 0;
-            foreach (var element in document.QuerySelectorAll("article > div"))
-            {
-                i++;
-                if (from <= i && (i - from) <= amount)
+                //парсинг ссылки на изображение
+                i = 0;
+                foreach (var element in document.QuerySelectorAll("article > div > p > strong > em > a"))
                 {
-                    var res = element.InnerHtml.Replace(element.QuerySelector("p").OuterHtml, "");
-                    text.Add(res);
+                    i++;
+                    if (from <= i && (i - from) <= amount)
+                    {
+                        img_link.Add(element.GetAttribute("href"));
+                        form.BeginInvoke(new Action(() => form.progressBar1.Value += procent));
+                    }
+                    else if ((i - from) > amount)
+                        break;
                 }
-                else if ((i - from) > amount)
-                    break;
-            }
 
-            //парсинг ссылки для кнопки
-            i = 0;
-            foreach (var element in document.QuerySelectorAll("article > div > p > a"))
-            {
-                i++;
-                if (from <= i && (i - from) <= amount)
-                    button_link.Add(element.GetAttribute("href"));
-                else if ((i - from) > amount)
-                    break;
+                //парсинг текста
+                i = 0;
+                foreach (var element in document.QuerySelectorAll("article > div"))
+                {
+                    i++;
+                    if (from <= i && (i - from) <= amount)
+                    {
+                        var res = element.InnerHtml.Replace(element.QuerySelector("p").OuterHtml, "");
+                        text.Add(res);
+                        form.BeginInvoke(new Action(() => form.progressBar1.Value += procent));
+                    }
+                    else if ((i - from) > amount)
+                        break;
+                }
+
+                //парсинг ссылки для кнопки
+                i = 0;
+                foreach (var element in document.QuerySelectorAll("article > div > p > a"))
+                {
+                    i++;
+                    if (from <= i && (i - from) <= amount)
+                    {
+                        button_link.Add(element.GetAttribute("href"));
+                        form.BeginInvoke(new Action(() => form.progressBar1.Value += procent));
+                    }
+                    else if ((i - from) > amount)
+                        break;
+                }
+            }
+            catch {
+                MessageBox.Show("Неудалось сформировать страницу. Так как новости не в типовом формате!");
+                return "";
             }
 
             #endregion
@@ -149,6 +176,14 @@ namespace DaS_Emailer
             }
 
             return response;
+        }
+
+        public static void completed(object sender, RunWorkerCompletedEventArgs e)
+        {
+            var _params = (bg_params)e.Result;
+            _params.form.BeginInvoke(new Action(() => _params.form.toolStripStatusLabel1.Text = "Готово"));
+            MessageBox.Show("Готово!");
+            _params.form.BeginInvoke(new Action(() => _params.form.progressBar1.Value = 0));
         }
     }
 }
