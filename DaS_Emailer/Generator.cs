@@ -19,7 +19,7 @@ namespace DaS_Emailer
             public string filename;
         }
 
-        public static void save(object sender, DoWorkEventArgs e)//Form1 form, string href)
+        public static void save(object sender, DoWorkEventArgs e)
         {
             var _params = (bg_params)e.Argument;
 
@@ -28,7 +28,6 @@ namespace DaS_Emailer
             sw.WriteLine(value);
             sw.Close();
             e.Result = _params;
-            //MessageBox.Show("Готово!");
         }
 
         private static string createPage(Form1 form)
@@ -124,7 +123,7 @@ namespace DaS_Emailer
                     i++;
                     if (from <= i && (i - from) <= amount)
                     {
-                        var res = element.InnerHtml.Replace(element.QuerySelector("p").OuterHtml, "");
+                        var res = element.InnerHtml.Replace(element.QuerySelector("p").OuterHtml, "").Replace("Читать далее", "");
                         text.Add(res);
                         form.BeginInvoke(new Action(() => form.progressBar1.Value += procent));
                     }
